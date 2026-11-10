@@ -104,6 +104,12 @@ class InteractiveSynchronousRunManager(
     /** A lock for state changes to this [InteractiveSynchronousRunManager]. */
     private val stateLock = ReentrantReadWriteLock()
 
+    /**
+     * A lock that serialises the processing of submissions. Submission filters (e.g., limits per team) check the
+     * submissions already stored; without serialisation, concurrent submissions could all pass these checks.
+     */
+    private val submissionLock = Any()
+
     private fun checkContext(context: RunActionContext) {
         if (!context.isAdmin)
             throw IllegalAccessError("functionality of SynchronousInteractiveRunManager only available to administrators")
@@ -250,18 +256,29 @@ class InteractiveSynchronousRunManager(
 
             dbTask
         }
+        val dbTaskId = this.store.transactional(true) { dbTask.id }
 
-        this.store.transactional {
+        try {
+            this.store.transactional {
 
-            /* Create and prepare pipeline for submission. */
-            this.evaluation.ISTaskRun(dbTask)
+                /* Create and prepare pipeline for submission. */
+                this.evaluation.ISTaskRun(dbTask)
 
-            /* Update status. */
-            this.evaluation.currentTaskRun!!.prepare()
+                /* Update status. */
+                this.evaluation.currentTaskRun!!.prepare()
 
-            /* Reset the ReadyLatch. */
-            //this.readyLatch.reset(VIEWER_TIMEOUT_DEFAULT)
-            /* Since the viewer sends its ready message too early, if we reset the readyLatch here, we will override the previously sent ready and will always run into the timout */
+                /* Reset the ReadyLatch. */
+                //this.readyLatch.reset(VIEWER_TIMEOUT_DEFAULT)
+                /* Since the viewer sends its ready message too early, if we reset the readyLatch here, we will override the previously sent ready and will always run into the timout */
+            }
+        } catch (e: Throwable) {
+            /* Remove the task that could not be started; otherwise it would block this evaluation (also after a restart). */
+            LOGGER.error("Could not start task with task template ${currentTaskTemplate.id} in evaluation ${this.id}: ${e.message}", e)
+            this.evaluation.taskRuns.removeIf { it.taskId == dbTaskId }
+            this.store.transactional {
+                DbTask.filter { it.id eq dbTaskId }.firstOrNull()?.delete()
+            }
+            throw e
         }
 
 
@@ -498,7 +515,7 @@ class InteractiveSynchronousRunManager(
      * @param context The [RunActionContext] used for the invocation.
      * @param submission [ApiSubmission] that should be registered.
      */
-    override fun postSubmission(context: RunActionContext, submission: ApiClientSubmission) : ApiSubmission {
+    override fun postSubmission(context: RunActionContext, submission: ApiClientSubmission) : ApiSubmission = synchronized(this.submissionLock) {
 
         /* Phase 1: Basic lookups required for validation (read-only). */
         val (task, transformedSubmission) = this.store.transactional(true) {
@@ -523,7 +540,7 @@ class InteractiveSynchronousRunManager(
         }
 
         /* Phase 2: Create DbSubmission, apply transformers and validate it. */
-        return this.store.transactional {
+        this.store.transactional {
             /* Convert submission to database representation. */
             val db = transformedSubmission.toNewDb()
 

@@ -11,6 +11,7 @@ import dev.dres.data.model.template.task.options.DbTargetOption
 import kotlinx.dnq.query.eq
 import kotlinx.dnq.query.filter
 import kotlinx.dnq.query.first
+import kotlinx.dnq.query.size
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.util.UUID
@@ -215,6 +216,34 @@ class EvaluationExecutionSyncTest : AbstractDresIntegrationTest() {
         val secondRun = createISTaskRun(eval, tmplId)
         assertEquals(2, eval.taskRuns.size)
         assertFalse(secondRun.hasEnded)
+    }
+
+    @Test
+    fun `reloading an evaluation removes tasks that were never started`() {
+        val eval = buildSyncEvaluation(taskCount = 2)
+        store.transactional { eval.start() }
+        val tmplId0 = store.transactional(true) { eval.getCurrentTaskTemplate().id!! }
+
+        /* First task ran and ended; second task was left preparing (e.g., server stopped while waiting for viewers). */
+        val firstRun = createISTaskRun(eval, tmplId0, prepare = true)
+        store.transactional { firstRun.start() }
+        store.transactional { firstRun.end() }
+        eval.goTo(1)
+        val tmplId1 = store.transactional(true) { eval.getCurrentTaskTemplate().id!! }
+        createISTaskRun(eval, tmplId1, prepare = true)
+        assertEquals(2, store.transactional(true) { eval.dbEvaluation.tasks.size() })
+
+        /* Simulates a restart of DRES. */
+        val reloaded = store.transactional { InteractiveSynchronousEvaluation(store, eval.dbEvaluation) }
+
+        assertEquals(1, reloaded.taskRuns.size)
+        assertEquals(firstRun.taskId, reloaded.taskRuns.first().taskId)
+        assertEquals(1, store.transactional(true) { reloaded.dbEvaluation.tasks.size() })
+
+        /* A new task can be started after the restart. */
+        reloaded.goTo(1)
+        assertDoesNotThrow { createISTaskRun(reloaded, tmplId1, prepare = true) }
+        assertEquals(2, reloaded.taskRuns.size)
     }
 
     // ── Scoreboard ─────────────────────────────────────────────────────────────

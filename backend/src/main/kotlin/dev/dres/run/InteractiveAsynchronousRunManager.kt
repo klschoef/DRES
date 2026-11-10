@@ -83,6 +83,12 @@ class InteractiveAsynchronousRunManager(
     /** A lock for state changes to this [InteractiveAsynchronousRunManager]. */
     private val stateLock = ReentrantReadWriteLock()
 
+    /**
+     * A lock that serialises the processing of submissions. Submission filters (e.g., limits per team) check the
+     * submissions already stored; without serialisation, concurrent submissions could all pass these checks.
+     */
+    private val submissionLock = Any()
+
     /** List of [Updatable] held by this [InteractiveAsynchronousRunManager]. */
     private val updatables = mutableListOf<Updatable>()
 
@@ -331,10 +337,21 @@ class InteractiveAsynchronousRunManager(
 
         }
 
-        val currentTaskRun = store.transactional {
-            val currentTaskRun = this.evaluation.IATaskRun(dbTask)
-            currentTaskRun.prepare()
-            currentTaskRun
+        val dbTaskId = this.store.transactional(true) { dbTask.id }
+        val currentTaskRun = try {
+            store.transactional {
+                val currentTaskRun = this.evaluation.IATaskRun(dbTask)
+                currentTaskRun.prepare()
+                currentTaskRun
+            }
+        } catch (e: Throwable) {
+            /* Remove the task that could not be started; otherwise it would block this team (also after a restart). */
+            LOGGER.error("Could not start task ${currentTaskTemplate.id} for team $teamId in evaluation ${this.id}: ${e.message}", e)
+            this.evaluation.removeTaskRun(teamId, dbTaskId)
+            this.store.transactional {
+                DbTask.filter { it.id eq dbTaskId }.firstOrNull()?.delete()
+            }
+            throw e
         }
 
         LOGGER.info("Run manager  ${this.id} started task $currentTaskTemplate.")
@@ -523,7 +540,7 @@ class InteractiveAsynchronousRunManager(
      * @return [DbVerdictStatus] of the [DbSubmission]
      * @throws IllegalStateException If [InteractiveRunManager] was not in status [RunManagerStatus.ACTIVE].
      */
-    override fun postSubmission(context: RunActionContext, submission: ApiClientSubmission) = this.stateLock.read {
+    override fun postSubmission(context: RunActionContext, submission: ApiClientSubmission) = synchronized(this.submissionLock) { this.stateLock.read {
 
         /* Phase 1: Basic lookups required for validation (read-only). */
         val (task, transformedSubmission) = this.store.transactional(true) {
@@ -569,7 +586,7 @@ class InteractiveAsynchronousRunManager(
 
             db.toApi()
         }
-    }
+    } }
 
     override fun reScore(taskId: TaskId) {
         val task = evaluation.taskRuns.find { it.taskId == taskId }

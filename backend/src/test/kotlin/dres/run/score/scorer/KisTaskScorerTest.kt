@@ -150,4 +150,24 @@ class KisTaskScorerTest {
         )
     }
 
+    @Test
+    fun countdownIsNotPenalised() {
+        val countdown = 5_000L
+        val scorer = KisTaskScorer(this.scoreable, maxPointsPerTask, maxPointsAtTaskEnd, penaltyPerWrongSubmission, null, countdown)
+        /* Each submission needs its own answer set, since an answer set references the submission it belongs to. */
+        fun correct() = listOf(ApiAnswerSet("correct", ApiVerdictStatus.CORRECT, "task", listOf(ApiAnswer(ApiAnswerType.ITEM, dummyImageItem, null, null, null))))
+        val submissions = sequenceOf(
+            /* Right when the countdown is over, i.e., when the task actually starts. */
+            ApiSubmission(teams[0], teams[0], "user1", "team1", "user1", taskStartTime + countdown, correct()),
+            /* At the actual end of the task (countdown + duration). */
+            ApiSubmission(teams[1], teams[1], "user2", "team2", "user2", taskStartTime + countdown + defaultTaskDuration * 1000, correct()),
+            /* During the countdown: must not exceed the maximum. */
+            ApiSubmission(teams[2], teams[2], "user3", "team3", "user3", taskStartTime + 1000, correct()),
+        )
+        val scores = scorer.calculateScores(submissions)
+        assertEquals(maxPointsPerTask, scores[teams[0]])
+        assertEquals(maxPointsAtTaskEnd, scores[teams[1]])
+        assertEquals(maxPointsPerTask, scores[teams[2]])
+    }
+
 }

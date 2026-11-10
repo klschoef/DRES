@@ -25,6 +25,7 @@ import jetbrains.exodus.database.TransientEntityStore
 import kotlinx.dnq.query.*
 import java.lang.IndexOutOfBoundsException
 import java.util.LinkedList
+import org.slf4j.LoggerFactory
 
 /**
  * Represents a concrete, interactive and synchronous [Run] of a [DbEvaluationTemplate].
@@ -41,6 +42,10 @@ class InteractiveSynchronousEvaluation(store: TransientEntityStore, evaluation: 
         store.transactional(true) { require(this.dbEvaluation.type == DbEvaluationType.INTERACTIVE_SYNCHRONOUS) { "Incompatible competition type ${this.dbEvaluation.type}. This is a programmer's error!" } }
         require(this.template.tasks.isNotEmpty()) { "Cannot create a run from a competition that doesn't have any tasks." }
         require(this.template.teams.isNotEmpty()) { "Cannot create a run from a competition that doesn't have any teams." }
+    }
+
+    companion object {
+        private val LOGGER = LoggerFactory.getLogger(InteractiveSynchronousEvaluation::class.java)
     }
 
     /** List of [TaskRun]s registered for this [InteractiveSynchronousEvaluation]. */
@@ -61,8 +66,28 @@ class InteractiveSynchronousEvaluation(store: TransientEntityStore, evaluation: 
     override val scoreboards: List<Scoreboard>
 
     init {
-        /* Load all ongoing tasks. */
-        this.dbEvaluation.tasks.asSequence().forEach { ISTaskRun(it) }
+        /*
+         * Remove tasks that were created but never started (e.g., because the server was stopped while the task was
+         * still waiting for viewers, or because starting the task failed). They never ran and would otherwise block
+         * the loading of subsequent tasks and the start of new tasks.
+         */
+        store.transactional {
+            this.dbEvaluation.tasks.asSequence().filter {
+                it.started == null && (it.status == DbTaskStatus.CREATED || it.status == DbTaskStatus.PREPARING) && it.answerSets.isEmpty
+            }.toList().forEach {
+                LOGGER.warn("Removing task ${it.id} of evaluation ${this.id}, which was created but never started.")
+                it.delete()
+            }
+        }
+
+        /* Load all ongoing tasks; a task that cannot be loaded must not prevent the evaluation from loading. */
+        store.transactional(true) { this.dbEvaluation.tasks.asSequence().toList() }.forEach { dbTask ->
+            try {
+                ISTaskRun(dbTask)
+            } catch (e: Exception) {
+                LOGGER.error("Could not load task ${store.transactional(true) { dbTask.id }} of evaluation ${this.id}: ${e.message}", e)
+            }
+        }
 
         /* Prepare the evaluation scoreboards. */
         val teams = this.template.teams.asSequence().map { it.teamId }.toList()
@@ -124,10 +149,9 @@ class InteractiveSynchronousEvaluation(store: TransientEntityStore, evaluation: 
 
         init {
 
-            check(this@InteractiveSynchronousEvaluation.taskRuns.isEmpty() || this@InteractiveSynchronousEvaluation.taskRuns.last().hasEnded) { //FIXME causes issues when resuming evaluation
+            check(this@InteractiveSynchronousEvaluation.taskRuns.isEmpty() || this@InteractiveSynchronousEvaluation.taskRuns.last().hasEnded) {
                 "Cannot create a new task. Another task is currently running."
             }
-            this@InteractiveSynchronousEvaluation.taskRuns.add(this)
 
             /* Initialize submission filter. */
             this.filter = store.transactional {
@@ -166,10 +190,11 @@ class InteractiveSynchronousEvaluation(store: TransientEntityStore, evaluation: 
                     when (val scoreOption = task.template.taskGroup.type.score) {
                         DbScoreOption.KIS -> KisTaskScorer(
                             this,
-                            task.template.taskGroup.type.configurations.query(DbConfiguredOption::key.startsWith(scoreOption.description))
+                            task.template.taskGroup.type.configurations.query(DbConfiguredOption::key.startsWith("${scoreOption.description}."))
                                 /* the split[1] is okay, as DOMAIN.KEY is enforced in template manager (here, DOMAIN is scoreOption.description)*/
                                 .asSequence().map { it.key.substringAfter(".") to it.value }.toMap(),
-                            store
+                            store,
+                            dev.dres.run.InteractiveRunManager.COUNTDOWN_DURATION.toLong()
                         )
 
                         DbScoreOption.AVS -> AvsTaskScorer(this, store)
@@ -179,6 +204,9 @@ class InteractiveSynchronousEvaluation(store: TransientEntityStore, evaluation: 
                     }
                 )
             }
+
+            /* Only register the task run once it has been fully initialised, so that a failure does not leave a broken run behind. */
+            this@InteractiveSynchronousEvaluation.taskRuns.add(this)
         }
     }
 }

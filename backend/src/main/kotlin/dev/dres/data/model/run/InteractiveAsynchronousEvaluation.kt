@@ -74,6 +74,13 @@ class InteractiveAsynchronousEvaluation(store: TransientEntityStore, evaluation:
         }.toList()
     }
 
+    /**
+     * Removes the [IATaskRun] with the given [TaskId] for the given [TeamId], e.g., because it could not be started.
+     */
+    fun removeTaskRun(teamId: TeamId, taskId: TaskId) {
+        this.tasksMap[teamId]?.removeIf { it.taskId == taskId }
+    }
+
     fun goTo(teamId: TeamId, index: Int) {
         this.navigationMap[teamId] = this.template.tasks[this.permutation[teamId]!![index]]
     }
@@ -168,12 +175,8 @@ class InteractiveAsynchronousEvaluation(store: TransientEntityStore, evaluation:
 
 
         init {
-            this@InteractiveAsynchronousEvaluation.tasksMap.compute(this.dbTask.team!!.id) { _, v ->
-                val list = v ?: LinkedList<IATaskRun>()
-                check(list.isEmpty() || list.last().hasEnded) { "Cannot create a new task. Another task is currently running." } //FIXME crashes on restart
-                list.add(this)
-                list
-            }
+            val existing = this@InteractiveAsynchronousEvaluation.tasksMap[this.teamId]
+            check(existing.isNullOrEmpty() || existing.last().hasEnded) { "Cannot create a new task. Another task is currently running." }
 
             /* Initialize submission filter. */
             this.filter = store.transactional {
@@ -214,7 +217,8 @@ class InteractiveAsynchronousEvaluation(store: TransientEntityStore, evaluation:
                             /* Parameters are stored as KIS.<parameter>; the scorer expects the plain parameter names. */
                             task.template.taskGroup.type.configurations.query(DbConfiguredOption::key.startsWith("${scoreOption.description}."))
                                 .asSequence().map { it.key.substringAfter(".") to it.value }.toMap(),
-                            store
+                            store,
+                            dev.dres.run.InteractiveRunManager.COUNTDOWN_DURATION.toLong()
                         )
 
                         DbScoreOption.AVS -> AvsTaskScorer(this, store)
@@ -223,6 +227,13 @@ class InteractiveAsynchronousEvaluation(store: TransientEntityStore, evaluation:
                         else -> throw IllegalStateException("The task score option $scoreOption is currently not supported.")
                     }
                 )
+            }
+
+            /* Only register the task run once it has been fully initialised, so that a failure does not leave a broken run behind. */
+            this@InteractiveAsynchronousEvaluation.tasksMap.compute(this.teamId) { _, v ->
+                val list = v ?: LinkedList<IATaskRun>()
+                list.add(this)
+                list
             }
         }
     }
