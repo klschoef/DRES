@@ -6,7 +6,7 @@ buildscript {
 
 plugins {
     /// Download task for FFMPEG binaries download
-    id 'de.undercouch.download' version '5.3.1'
+    id 'de.undercouch.download' version '5.7.0'
 
     /// OpenAPI Generator for Frontend internal api generation
     id 'org.openapi.generator' version '5.2.0'

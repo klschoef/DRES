@@ -9,7 +9,9 @@ We provide a dedicated __client__ DRES OpenApi specifications for systems to be 
 
 ## Requirements
 
-To deploy and run DRES, a JRE of at least Java 17 is required, e.g. the [OpenJDK 17](https://jdk.java.net/java-se-ri/17).
+To deploy and run DRES, a JRE of at least Java 17 is required (Java 21 works as well), e.g. [OpenJDK 21](https://jdk.java.net/java-se-ri/21).
+Building DRES requires a JDK 17 or 21 (the build uses Gradle 9 and Kotlin 2.4; very new JDKs that Gradle does not support yet, e.g. 27, cannot run the build).
+Gradle downloads the Node.js version used for the frontend build on its own.
 For development, besides the JDK, addtitionally [NPM](https://www.npmjs.com/) and the [Angular CLI](https://cli.angular.io/) is recommended.
 
 ## Citation
@@ -77,7 +79,7 @@ The backend is written in Kotlin, hence requires a JVM, and the frontend is writ
 However, the entire setup process is Gradle based. To setup DRES, follow these steps:
 
 1. Clone or Download this repository
-2. Build the backend using Gradle `$> ./gradlew distZip` (alternatively `$> ./gradlew distTar`)
+2. Build the backend using Gradle `$> ./gradlew distZip` (alternatively `$> ./gradlew distTar`). Build on the operating system DRES will run on, since the bundled FFmpeg binaries are downloaded for the build machine's operating system.
 3. Extract the generated archive (see `backend/build/distributions`)
 4. Run the backend (it serves the frontend) by starting the `backend` script in the `bin` directory
 

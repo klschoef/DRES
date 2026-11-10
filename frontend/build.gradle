@@ -1,13 +1,7 @@
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-}
-
 plugins {
     /// Plugin to handle NodeJS
     id 'base'
-    id 'com.github.node-gradle.node' version '3.0.1'
+    id 'com.github.node-gradle.node' version '7.1.0'
 }
 
 configurations {
@@ -28,26 +22,27 @@ node {
     nodeProjectDir = file("${project.projectDir}")
 }
 
-task buildFrontend(type: YarnTask) {
+def distDir = layout.buildDirectory.dir("dist")
+
+def buildFrontend = tasks.register('buildFrontend', YarnTask) {
     outputs.upToDateWhen {
-        return file("$buildDir/dist").isDirectory()
+        return distDir.get().asFile.isDirectory()
     }
     args = ['run', 'pbuild']
-    dependsOn yarn_install
-    dependsOn rootProject.tasks.getByName('openApiGenerate')
+    dependsOn tasks.named('yarn')
+    dependsOn rootProject.tasks.named('openApiGenerate')
 }
 
-task packageFrontend(type: Zip) {
+def packageFrontend = tasks.register('packageFrontend', Zip) {
     outputs.upToDateWhen {
-        return file("$buildDir/lib/dres-frontend.jar").exists()
+        return layout.buildDirectory.file("lib/dres-frontend.jar").get().asFile.exists()
     }
     dependsOn buildFrontend
     archiveBaseName = 'dres-frontend'
     archiveExtension = 'jar'
-    destinationDirectory=  file("$buildDir/lib")
-    from("$buildDir/dist/browser") {
-        println("includeConfig: "+includeConfig)
-        if(!includeConfig){
+    destinationDirectory = layout.buildDirectory.dir("lib")
+    from(distDir.map { it.dir("browser") }) {
+        if (!includeConfig) {
             exclude '**/config.json'
         }
         into 'html'
@@ -55,8 +50,7 @@ task packageFrontend(type: Zip) {
 }
 
 artifacts {
-    frontendFiles(packageFrontend.archiveFile) {
-        builtBy packageFrontend
-        type "jar"
+    frontendFiles(packageFrontend) {
+        type = "jar"
     }
 }

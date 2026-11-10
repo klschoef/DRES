@@ -1,4 +1,4 @@
-FROM zenika/kotlin:1.4.20-jdk11 AS build
+FROM eclipse-temurin:21-jdk AS build
 
 COPY . /dres-src
 RUN cd /dres-src && \
@@ -7,7 +7,7 @@ RUN cd /dres-src && \
   cd dres-dist && \
   tar xf ../backend/build/distributions/dres-dist.tar
 
-FROM zenika/kotlin:1.4.20-jdk11-slim
+FROM eclipse-temurin:21-jre
 
 RUN mkdir /dres-data
 COPY config.json /dres-data
