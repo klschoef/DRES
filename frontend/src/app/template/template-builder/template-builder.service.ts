@@ -224,6 +224,30 @@ export class TemplateBuilderService {
     return this.dirtySubject.asObservable();
   }
 
+  /**
+   * Replaces the task type with the given (old) name by the given task type.
+   * If the name changed, task groups and tasks referencing the task type are updated accordingly.
+   *
+   * @param oldName The name of the task type before editing.
+   * @param taskType The edited task type.
+   */
+  public updateTaskType(oldName: string, taskType: ApiTaskType){
+    const idx = this.getTemplate().taskTypes.findIndex(t => t.name === oldName);
+    if (idx === -1) {
+      this.getTemplate().taskTypes.push(taskType);
+    } else {
+      this.getTemplate().taskTypes[idx] = taskType;
+    }
+    if (oldName !== taskType.name) {
+      this.getTemplate().taskGroups.filter(g => g.type === oldName).forEach(g => g.type = taskType.name);
+      this.getTemplate().tasks.filter(t => t.taskType === oldName).forEach(t => t.taskType = taskType.name);
+    }
+    if (this._selectedTaskType?.name === oldName) {
+      this._selectedTaskType = taskType;
+    }
+    this.update(this.getTemplate());
+  }
+
   public removeTaskType(taskType: ApiTaskType){
     const idx = this.getTemplate().taskTypes.findIndex(t => t.name === taskType.name);
     if (idx > -1) {
@@ -256,7 +280,10 @@ export class TemplateBuilderService {
   }
 
   removeTeamGroup(teamGroup: ApiTeamGroup) {
-    this.getTemplate().teamGroups.splice(this.getTemplate().teamGroups.indexOf(teamGroup), 1);
+    const idx = this.getTemplate().teamGroups.findIndex(g => teamGroup.id ? g.id === teamGroup.id : g === teamGroup);
+    if (idx > -1) {
+      this.getTemplate().teamGroups.splice(idx, 1);
+    }
     this.update(this.getTemplate());
   }
 
@@ -318,6 +345,8 @@ export class TemplateBuilderService {
       if(alteredGroups.has(it.taskGroup)){
         it.taskGroup = alteredGroups.get(it.taskGroup).name
       }
+      /* Imported tasks are new tasks of this template; the ID of the source template must not be re-used. */
+      it.id = undefined
       if(!this.getTemplate().tasks.map(that => that.name).includes(it.name)){
         this.getTemplate().tasks.push(it)
       }else{
@@ -325,17 +354,22 @@ export class TemplateBuilderService {
         this.getTemplate().tasks.push(it)
       }
     })
-    /* teams */
+    /* teams: imported teams are new teams of this template, hence the IDs of the source template are dropped. */
+    const importedTeamNames = new Map<string, string>()
     from.teams.forEach(it => {
-      if(!this.getTemplate().teams.map(that => that.name).includes(it.name)){
-        this.getTemplate().teams.push(it)
-      }else{
-        it.name = `${it.name} (Imported)`
-        this.getTemplate().teams.push(it)
+      if(this.getTemplate().teams.map(that => that.name).includes(it.name)){
+        it.name = `${it.name} ${nameCollisionSuffix}`
       }
+      if(it.id){
+        importedTeamNames.set(it.id, it.name)
+      }
+      it.id = undefined
+      this.getTemplate().teams.push(it)
     })
-    /* team groups */
+    /* team groups: teams are referenced by (possibly altered) name, which the backend resolves within this template. */
     from.teamGroups.forEach(it => {
+      it.id = undefined
+      it.teams = (it.teams ?? []).map(t => ({...t, id: undefined, name: importedTeamNames.get(t.id) ?? t.name}))
       if(!this.getTemplate().teamGroups.map(that => that.name).includes(it.name)){
         this.getTemplate().teamGroups.push(it)
       }else{

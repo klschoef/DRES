@@ -28,8 +28,13 @@ class DeleteExternalItemHandler: DeleteRestHandler<SuccessStatus>, AbstractExter
     )
     override fun doDelete(ctx: Context): SuccessStatus {
         val filename = ctx.pathParamMap()["name"] ?: throw ErrorStatusException(400, "No filename given", ctx)
+        val root = DRES.EXTERNAL_ROOT.toAbsolutePath().normalize()
+        val toDelete = root.resolve(filename).normalize()
+        if (!toDelete.startsWith(root) || toDelete == root) {
+            throw ErrorStatusException(400, "Invalid filename '$filename'.", ctx)
+        }
         try {
-            Files.delete(DRES.EXTERNAL_ROOT.resolve(filename))
+            Files.delete(toDelete)
             return SuccessStatus("Successfully deleted $filename")
         }catch(nsf: NoSuchFileException){
             throw ErrorStatusException(404, "The file $filename does not exist", ctx)

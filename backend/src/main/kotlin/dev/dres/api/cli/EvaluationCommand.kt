@@ -258,7 +258,7 @@ class EvaluationCommand(internal val store: TransientEntityStore) :
                 return@transactional
             }
             val mapper = ObjectMapper()
-            Files.newBufferedWriter(path, StandardOpenOption.WRITE, StandardOpenOption.CREATE).use {
+            Files.newBufferedWriter(path, StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING).use {
                 val writer = if (this.pretty) {
                     mapper.writerWithDefaultPrettyPrinter()
                 } else {
@@ -306,10 +306,8 @@ class EvaluationCommand(internal val store: TransientEntityStore) :
                 this@EvaluationCommand.store.transactional {
                     RunExecutor.schedule(run)
                 }
+                println("Evaluation ${this.id} was reactivated.")
             }
-
-
-            println("Evaluation ${this.id} was reactivated.")
         }
     }
 
@@ -394,7 +392,7 @@ class EvaluationCommand(internal val store: TransientEntityStore) :
                 return@transactional
             }
 
-            Files.newOutputStream(this.path, StandardOpenOption.WRITE).use { os ->
+            Files.newOutputStream(this.path, StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING).use { os ->
                 csvWriter().open(os) {
                     writeRow(header)
                     tasks.asSequence().forEach { task ->

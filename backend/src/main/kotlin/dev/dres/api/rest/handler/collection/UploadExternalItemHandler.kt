@@ -48,7 +48,11 @@ class UploadExternalItemHandler : PostRestHandler<SuccessStatus>, AccessManagedR
     override fun doPost(ctx: Context): SuccessStatus {
         val fileName = ctx.pathParamMap()["name"] ?: throw ErrorStatusException(400, "No filename given", ctx)
         try {
-            val toStorePath = DRES.EXTERNAL_ROOT.resolve(fileName)
+            val root = DRES.EXTERNAL_ROOT.toAbsolutePath().normalize()
+            val toStorePath = root.resolve(fileName).normalize()
+            if (!toStorePath.startsWith(root) || toStorePath == root) {
+                throw ErrorStatusException(400, "Invalid filename '$fileName'.", ctx)
+            }
             toStorePath.writeBytes(ctx.bodyAsBytes())
             return SuccessStatus("The file $fileName was successfully processed.")
         } catch (ioe: IOException) {

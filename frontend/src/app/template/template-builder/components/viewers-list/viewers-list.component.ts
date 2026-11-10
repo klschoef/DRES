@@ -2,7 +2,8 @@ import { Component, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { AbstractTemplateBuilderComponent } from "../abstract-template-builder.component";
 import { ApiRole, ApiUser, TemplateService, UserService } from "../../../../../../openapi";
 import { MatTable } from "@angular/material/table";
-import { Observable } from "rxjs";
+import { combineLatest, Observable, startWith } from "rxjs";
+import { FormControl } from "@angular/forms";
 import { TemplateBuilderService } from "../../template-builder.service";
 import { ActivatedRoute } from "@angular/router";
 import { MatSnackBar } from "@angular/material/snack-bar";
@@ -23,6 +24,12 @@ export class ViewersListComponent extends AbstractTemplateBuilderComponent imple
 
   /** The users that are available, i.e. other except those in the list */
   availableUsers: Observable<ApiUser[]>;
+
+  /** All viewer users (used to resolve names in the table). */
+  allUsers: Observable<ApiUser[]>;
+
+  /** The search / autocomplete input. */
+  userSearch = new FormControl<string | ApiUser>('');
 
   /** The columns in the table */
   displayedColumns: string[] = ["name", "action"];
@@ -47,18 +54,23 @@ export class ViewersListComponent extends AbstractTemplateBuilderComponent imple
       return;
     }
     this.builderService.getTemplate().viewers.push(event.option.value.id);
+    this.userSearch.setValue('');
     this.builderService.update();
     this.table.renderRows();
   }
 
   remove(userId: string){
-    this.builderService.getTemplate().viewers.splice(this.builderService.getTemplate().viewers.indexOf(userId),1);
+    const idx = this.builderService.getTemplate().viewers.indexOf(userId);
+    if (idx < 0) {
+      return;
+    }
+    this.builderService.getTemplate().viewers.splice(idx, 1);
     this.builderService.update();
     this.table.renderRows();
   }
 
   userForId(id: string){
-    return this.availableUsers.pipe(map((users) => users.find((u) => u.id === id)))
+    return this.allUsers.pipe(map((users) => users.find((u) => u.id === id)))
   }
 
   displayUser(user: ApiUser){
@@ -87,9 +99,23 @@ export class ViewersListComponent extends AbstractTemplateBuilderComponent imple
   }
 
   refreshAvailableUsers(){
-    this.availableUsers = this.userService.getApiV2UserList().pipe(
+    this.allUsers = this.userService.getApiV2UserList().pipe(
       map((users) => users.filter((user) => user.role === ApiRole.VIEWER)),
       shareReplay(1)
-    )
+    );
+    /* Users that can be added: filtered by the search text, excluding the viewers already assigned. */
+    this.availableUsers = combineLatest([
+      this.allUsers,
+      this.userSearch.valueChanges.pipe(startWith(this.userSearch.value)),
+      this.builderService.templateAsObservable()
+    ]).pipe(
+      map(([users, search, template]) => {
+        const filterValue = typeof search === 'string' ? search.toLowerCase() : '';
+        const assigned = template?.viewers ?? [];
+        return users
+          .filter((u) => !assigned.includes(u.id))
+          .filter((u) => !filterValue || u.username.toLowerCase().includes(filterValue));
+      })
+    );
   }
 }

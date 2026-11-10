@@ -45,16 +45,8 @@ export class TemplateInformationComponent extends AbstractTemplateBuilderCompone
   }
 
   ngOnInit(): void {
+    /* The template itself is loaded by the TemplateBuilderComponent; loading it here again would reset the builder twice. */
     this.onInit();
-    this.routeSub = this.route.params.subscribe( (p) => {
-      this.templateService.getApiV2TemplateByTemplateId(p.templateId).subscribe((t) => {
-          /* initialise from route */
-          this.builderService.initialise(t);
-        },
-        (r) => {
-          this.snackBar.open(`Error: ${r?.error?.description}`, null,{duration: 5000});
-        });
-    });
     this.changeSub = this.form.valueChanges.subscribe((value) => {
       let isDirty = false;
       if (value.name !== this.builderService.getTemplate().name) {
@@ -70,7 +62,7 @@ export class TemplateInformationComponent extends AbstractTemplateBuilderCompone
         const buckets = new Map<string, number>();
         this.builderService.getTemplate().tasks.forEach(t => {
           if (buckets.has(t.collectionId)) {
-            buckets[t.collectionId]++;
+            buckets.set(t.collectionId, buckets.get(t.collectionId) + 1);
           } else {
             buckets.set(t.collectionId, 1);
           }
@@ -98,7 +90,7 @@ export class TemplateInformationComponent extends AbstractTemplateBuilderCompone
       const buckets = new Map<string, number>();
       this.builderService.getTemplate().tasks.forEach(t => {
         if (buckets.has(t.collectionId)) {
-          buckets[t.collectionId]++;
+          buckets.set(t.collectionId, buckets.get(t.collectionId) + 1);
         } else {
           buckets.set(t.collectionId, 1);
         }

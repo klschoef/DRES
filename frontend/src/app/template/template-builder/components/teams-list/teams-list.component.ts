@@ -54,21 +54,21 @@ export class TeamsListComponent extends AbstractTemplateBuilderComponent impleme
     this.afterInitComplete = true;
   }
 
+  /* Called by the base class for every change of the template; must not subscribe again (would leak a subscription per change). */
   onChange() {
-    this.updateSub = this.builderService.templateAsObservable().subscribe(t => {
-      if(t){
-        this.dataSource.data = t.teams;
-        /* The elementRef.nativeElement.offsetParent checks if this component is visible */
-        if(this.afterInitComplete && this.elementRef.nativeElement.offsetParent){
-          this.teamTable?.renderRows();
-        }
+    const t = this.builderService.getTemplate();
+    if(t){
+      this.dataSource.data = t.teams;
+      /* The elementRef.nativeElement.offsetParent checks if this component is visible */
+      if(this.afterInitComplete && this.elementRef.nativeElement.offsetParent){
+        this.teamTable?.renderRows();
       }
-    })
+    }
   }
 
   ngOnDestroy() {
     this.onDestroy();
-    this.updateSub.unsubscribe();
+    this.updateSub?.unsubscribe();
   }
 
   /**
@@ -108,7 +108,14 @@ export class TeamsListComponent extends AbstractTemplateBuilderComponent impleme
   }
 
   public removeTeam(team: ApiTeam){
-    this.builderService.getTemplate().teams.splice(this.builderService.getTemplate().teams.indexOf(team), 1);
+    const template = this.builderService.getTemplate();
+    const idx = template.teams.indexOf(team);
+    if (idx < 0) {
+      return;
+    }
+    template.teams.splice(idx, 1);
+    /* Also remove the team from all team groups. */
+    template.teamGroups.forEach(g => g.teams = g.teams.filter(t => team.id ? t.id !== team.id : t.name !== team.name));
     this.builderService.update();
     this.teamTable.renderRows();
   }

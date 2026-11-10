@@ -1,7 +1,8 @@
 import {Component, OnDestroy, OnInit, ViewChild} from '@angular/core';
 import {MatTable} from '@angular/material/table';
 import { ApiRole, ApiUser, TemplateService, UserService } from "../../../../../../openapi";
-import {combineLatest, Observable} from 'rxjs';
+import {combineLatest, Observable, startWith} from 'rxjs';
+import { FormControl } from '@angular/forms';
 import {AbstractTemplateBuilderComponent} from '../abstract-template-builder.component';
 import {TemplateBuilderService} from '../../template-builder.service';
 import { filter, map, shareReplay, tap, withLatestFrom } from "rxjs/operators";
@@ -20,7 +21,14 @@ export class JudgesListComponent extends AbstractTemplateBuilderComponent implem
     @ViewChild('judgesTable')
     judgesTable: MatTable<ApiUser>;
 
+    /** All users with the judge role (used to resolve names in the table). */
+    allJudges: Observable<ApiUser[]>;
+
+    /** Judges that can be added: filtered by the search text, excluding the judges already assigned. */
     availableJudges: Observable<ApiUser[]>;
+
+    /** The search / autocomplete input. */
+    judgeSearch = new FormControl<string | ApiUser>('');
 
     displayedColumns: string[] = ['name', 'action'];
 
@@ -41,18 +49,23 @@ export class JudgesListComponent extends AbstractTemplateBuilderComponent implem
             return;
         }
         this.builderService.getTemplate().judges.push(event.option.value.id);
+        this.judgeSearch.setValue('');
         this.builderService.update();
         this.judgesTable.renderRows();
     }
 
     removeJudge(judgeId: string) {
-        this.builderService.getTemplate().judges.splice(this.builderService.getTemplate().judges.indexOf(judgeId), 1);
+        const idx = this.builderService.getTemplate().judges.indexOf(judgeId);
+        if (idx < 0) {
+            return;
+        }
+        this.builderService.getTemplate().judges.splice(idx, 1);
         this.builderService.update();
         this.judgesTable.renderRows();
     }
 
     judgeForId(id: string) {
-        return this.availableJudges.pipe(map((users) => users.find((u) => u.id === id)));
+        return this.allJudges.pipe(map((users) => users.find((u) => u.id === id)));
     }
 
     displayJudge(judge: ApiUser) {
@@ -81,13 +94,22 @@ export class JudgesListComponent extends AbstractTemplateBuilderComponent implem
     }
 
     refreshAvailableJudges() {
-        this.availableJudges = this.userService.getApiV2UserList().pipe(
+        this.allJudges = this.userService.getApiV2UserList().pipe(
             map((users) => users.filter((user) => user.role === ApiRole.JUDGE)),
-            /*withLatestFrom(this.judges),
-            map(([users, judges]) => {
-               return users.filter((u) => !judges.includes(u.id))
-            }),*/
             shareReplay(1)
+        );
+        this.availableJudges = combineLatest([
+            this.allJudges,
+            this.judgeSearch.valueChanges.pipe(startWith(this.judgeSearch.value)),
+            this.builderService.templateAsObservable()
+        ]).pipe(
+            map(([users, search, template]) => {
+                const filterValue = typeof search === 'string' ? search.toLowerCase() : '';
+                const assigned = template?.judges ?? [];
+                return users
+                    .filter((u) => !assigned.includes(u.id))
+                    .filter((u) => !filterValue || u.username.toLowerCase().includes(filterValue));
+            })
         );
     }
 

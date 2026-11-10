@@ -138,6 +138,7 @@ object RestApi {
             // Template
             ListEvaluationTemplatesHandler(),
             CreateEvaluationTemplateHandler(),
+            ImportEvaluationTemplateHandler(),
             UpdateEvaluationTemplateHandler(),
             CloneEvaluationTemplateHandler(),
             ShowEvaluationTemplateHandler(),
@@ -163,8 +164,8 @@ object RestApi {
             GetTaskTargetHandler(store, cache),
             GetCurrentTaskHandler(),
             GetSubmissionInfoHandler(store),
-            GetSubmissionAfterInfoHandler(),
-            GetSubmissionHistoryInfoHandler(),
+            GetSubmissionAfterInfoHandler(store),
+            GetSubmissionHistoryInfoHandler(store),
             ViewerReadyHandler(),
 
             // Evaluation run scores

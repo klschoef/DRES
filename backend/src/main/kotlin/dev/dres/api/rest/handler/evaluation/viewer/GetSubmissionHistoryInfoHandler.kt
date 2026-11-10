@@ -11,9 +11,11 @@ import dev.dres.data.model.run.RunActionContext.Companion.runActionContext
 import dev.dres.run.InteractiveRunManager
 import io.javalin.http.Context
 import io.javalin.openapi.*
+import jetbrains.exodus.database.TransientEntityStore
+import kotlinx.dnq.query.toList
 
 
-class GetSubmissionHistoryInfoHandler: AbstractEvaluationViewerHandler(), GetRestHandler<List<ApiSubmission>> {
+class GetSubmissionHistoryInfoHandler(private val store: TransientEntityStore): AbstractEvaluationViewerHandler(), GetRestHandler<List<ApiSubmission>> {
 
     override val route = "evaluation/{evaluationId}/task/{taskId}/submission/list"
 
@@ -41,18 +43,22 @@ class GetSubmissionHistoryInfoHandler: AbstractEvaluationViewerHandler(), GetRes
             throw ErrorStatusException(403, "Access denied.", ctx)
         }
         val taskId = ctx.pathParamMap()["taskId"] ?: throw ErrorStatusException(404, "Missing task id", ctx)
-        val task = manager.currentTask(rac)
-        return if (task?.template?.id == taskId && task.isRunning) {
+        /* The task can be addressed by its task (run) ID or, for the current task, by its template ID. */
+        val current = manager.currentTask(rac)
+        val task = if (current != null && (current.taskId == taskId || current.template.id == taskId)) {
+            current
+        } else {
+            manager.taskForId(rac, taskId)
+        } ?: return emptyList()
+        return this.store.transactional(true) {
             if (task.isRunning) {
                 val hidden = manager.template.taskTypes.find { it.name == task.template.taskType }?.taskOptions?.contains(
                     ApiTaskOption.HIDDEN_RESULTS
                 ) == true
-                manager.currentSubmissions(rac).map { it.toApi(hidden) }
+                task.getDbSubmissions().toList().map { it.toApi(hidden) }
             } else {
-                manager.taskForId(rac, taskId)?.getSubmissions() ?: emptyList()
+                task.getSubmissions()
             }
-        } else {
-            emptyList()
         }
     }
 }

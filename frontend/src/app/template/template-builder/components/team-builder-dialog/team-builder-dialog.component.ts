@@ -9,7 +9,7 @@ import { MatAutocompleteSelectedEvent } from "@angular/material/autocomplete";
 import { COMMA, ENTER } from "@angular/cdk/keycodes";
 import { MatChipInput, MatChipInputEvent } from "@angular/material/chips";
 import { TemplateBuilderService } from "../../template-builder.service";
-import { CdkDragDrop, moveItemInArray, transferArrayItem } from "@angular/cdk/drag-drop";
+import { CdkDragDrop } from "@angular/cdk/drag-drop";
 import { SearchBoxComponent } from "../../../../shared/search-box/search-box.component";
 
 @Component({
@@ -68,7 +68,8 @@ export class TeamBuilderDialogComponent {
         Validators.maxLength(7),
       ]),
       logoData: new FormControl(team?.logoData),
-      users: new FormControl(team?.users || []),
+      /* Copy, so that the team of the template is only changed when the dialog is saved. */
+      users: new FormControl([...(team?.users ?? [])]),
       userInput: new FormControl(''),
     });
     this.filterUsers()
@@ -87,7 +88,7 @@ export class TeamBuilderDialogComponent {
    * Selected user gets added to the list of users
    */
   public selectedUser(event: MatAutocompleteSelectedEvent){
-    this.form.get('users').value.push(event.option.value);
+    this.form.get('users').setValue([...this.form.get('users').value, event.option.value]);
     this.form.get('userInput').setValue(null,{emit: false});
     this.userInput.nativeElement.value = '';
   }
@@ -102,25 +103,42 @@ export class TeamBuilderDialogComponent {
     });
   }
 
+  /**
+   * Handles drag'n'drop between (and within) the member and the available users list.
+   *
+   * The drop lists display filtered views of the underlying arrays, hence all indices are mapped back onto the
+   * underlying arrays. New array instances are assigned afterwards, so that the (pure) filter pipes re-evaluate
+   * while the filters entered by the user are kept.
+   */
   public drop(event: CdkDragDrop<ApiUser[]>){
-    let prevList = event.previousContainer.data;
-    let newList = event.container.data;
-    if(event.previousContainer === event.container){
-      moveItemInArray(event.container.data, event.previousIndex, event.currentIndex)
-    }else{
-      if(event.previousContainer.id === "memberList"){
-        prevList = this.form.get('users').value;
-        newList = this.users;
-      }else{
-        newList = this.form.get('users').value;
-        prevList = this.users;
-      }
-      let prevIdx = prevList.indexOf(event.previousContainer.data[event.previousIndex])
-      let currIdx = newList.indexOf(event.container.data[event.currentIndex])
-      transferArrayItem(prevList, newList, prevIdx, currIdx)
+    const members: ApiUser[] = [...(this.form.get('users').value ?? [])];
+    const available: ApiUser[] = [...(this.users ?? [])];
+    const source = event.previousContainer.id === 'memberList' ? members : available;
+    const target = event.container.id === 'memberList' ? members : available;
+
+    const item: ApiUser = event.item.data ?? event.previousContainer.data[event.previousIndex];
+    const sourceIdx = source.indexOf(item);
+    if (sourceIdx < 0) {
+      return;
     }
-    this.memberFilter?.clear()
-    this.userFilter?.clear();
+
+    /* Element of the (filtered) target view at the drop position, before the move. */
+    const sameList = event.previousContainer === event.container;
+    if (sameList && event.currentIndex === event.previousIndex) {
+      return;
+    }
+    const anchor = event.container.data[event.currentIndex];
+    source.splice(sourceIdx, 1);
+    let targetIdx = anchor && anchor !== item ? target.indexOf(anchor) : -1;
+    if (targetIdx < 0) {
+      targetIdx = target.length;
+    } else if (sameList && event.currentIndex > event.previousIndex) {
+      targetIdx += 1; /* Moving down within the same list: insert after the anchor. */
+    }
+    target.splice(targetIdx, 0, item);
+
+    this.users = available;
+    this.form.get('users').setValue(members);
   }
 
 
@@ -130,9 +148,9 @@ export class TeamBuilderDialogComponent {
    * @param user The selected user.
    */
   public removeUser(user: ApiUser): void {
-    const index = this.form.get('users').value.indexOf(user);
-    if (index >= 0) {
-      this.form.get('users').value.splice(index, 1);
+    const members: ApiUser[] = this.form.get('users').value ?? [];
+    if (members.includes(user)) {
+      this.form.get('users').setValue(members.filter((u) => u !== user));
     }
   }
 

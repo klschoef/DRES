@@ -13,7 +13,7 @@
     <div style="padding: 0.5em">
       <mat-form-field appearance="fill">
         <mat-label>Viewer Selection</mat-label>
-        <input type="text" placeholder="Viewer" aria-label="Viewer" matInput [matAutocomplete]="userAutocomplete" (click)="$event.stopPropagation()" />
+        <input type="text" placeholder="Viewer" aria-label="Viewer" matInput [formControl]="userSearch" [matAutocomplete]="userAutocomplete" (click)="$event.stopPropagation()" />
         <mat-autocomplete #userAutocomplete="matAutocomplete" (optionSelected)="addUser($event)" [displayWith]="displayUser">
           <mat-option *ngFor="let user of availableUsers | async" [value]="user">{{user.username}}</mat-option>
         </mat-autocomplete>

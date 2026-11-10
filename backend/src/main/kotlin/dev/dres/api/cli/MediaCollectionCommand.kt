@@ -456,7 +456,8 @@ class MediaCollectionCommand(private val config: Config) :
             val issues = mutableMapOf<Path, String>()
             var fileCounter = 0
             Files.walk(base).filter {
-                Files.isRegularFile(it) && (it.extension in imageTypes || it.extension in videoTypes)
+                /* Configured types are lower-cased, hence the file extension has to be lower-cased as well (e.g. .JPG). */
+                Files.isRegularFile(it) && (it.extension.lowercase() in imageTypes || it.extension.lowercase() in videoTypes)
             }.asSequence().chunked(transactionChunkSize).forEach { list ->
 
                 val items = list.mapNotNull {
@@ -518,7 +519,7 @@ class MediaCollectionCommand(private val config: Config) :
                         issues[it] = e.stackTraceToString()
                         null
                     }
-                    ++fileCounter
+                    if (item != null) ++fileCounter
                     item
 
                 }
@@ -535,7 +536,7 @@ class MediaCollectionCommand(private val config: Config) :
                 om.writeValue(file, issues)
                 println("done")
             }
-            println("\nAdded $fileCounter elements to collection")
+            println("\nFound $fileCounter media items (items already in the collection were skipped).")
         }
 
     }
@@ -615,10 +616,10 @@ class MediaCollectionCommand(private val config: Config) :
         ).required()
 
         /** The duration of the new [DbMediaItem]. */
-        private val duration: Long? by option("-d", "--duration", help = "video duration in seconds").long()
+        private val duration: Long? by option("-d", "--duration", help = "video duration in milliseconds").long()
 
         /** The fps rate of the new [DbMediaItem]. */
-        private val fps: Float? by option("-f", "--fps").float().required()
+        private val fps: Float? by option("-f", "--fps", help = "video frame rate (required for videos)").float()
 
         override fun run() {
             /* Find media collection. */

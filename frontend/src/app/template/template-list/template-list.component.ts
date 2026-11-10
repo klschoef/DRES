@@ -1,7 +1,8 @@
 import { AfterViewInit, Component } from "@angular/core";
 import {
   ApiCreateEvaluation,
-  ApiEvaluationOverview, ApiEvaluationStartMessage, ApiEvaluationTemplateOverview,
+  ApiEvaluation,
+  ApiEvaluationOverview, ApiEvaluationStartMessage, ApiEvaluationTemplate, ApiEvaluationTemplateOverview,
   DownloadService,
   EvaluationAdministratorService, ApiRunProperties, SuccessStatus,
   TemplateService
@@ -17,6 +18,7 @@ import {
 } from "../../shared/confirmation-dialog/confirmation-dialog.component";
 import { EvaluationStartDialogComponent, EvaluationStartDialogResult } from "../evaluation-start-dialog/evaluation-start-dialog.component";
 import {mergeMap} from 'rxjs';
+import { instanceOfEvaluation, instanceOfTemplate } from "../../utilities/api.utilities";
 
 @Component({
     selector: 'app-template-list',
@@ -60,6 +62,30 @@ export class TemplateListComponent implements AfterViewInit{
         this.snackBar.open(`Error: ${err?.description}`, null, {duration: 5000});
       }
     )
+  }
+
+  /** Imports an uploaded template JSON (or an evaluation export containing a template) as a new template. */
+  importHandler = (contents: any) => {
+    const template: ApiEvaluationTemplate = instanceOfTemplate(contents)
+      ? contents as ApiEvaluationTemplate
+      : (instanceOfEvaluation(contents) ? (contents as ApiEvaluation).template : null);
+    if (!template) {
+      this.snackBar.open('Error: The file does not contain an evaluation template.', null, {duration: 5000});
+      return;
+    }
+    this.templateService.postApiV2TemplateImport(template).subscribe({
+      next: (t: ApiEvaluationTemplate) => {
+        this.refresh();
+        this.snackBar.open(`Successfully imported template '${t.name}' (${t.id}).`, null, {duration: 5000});
+      },
+      error: (err) => {
+        this.snackBar.open(`Error: ${err?.error?.description ?? err?.message}`, null, {duration: 5000});
+      }
+    });
+  }
+
+  importErrorHandler = (err: any) => {
+    this.snackBar.open('Error: The selected file could not be read as JSON.', null, {duration: 5000});
   }
 
   public refresh(){

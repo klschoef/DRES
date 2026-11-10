@@ -183,7 +183,8 @@ class InteractiveAsynchronousEvaluation(store: TransientEntityStore, evaluation:
                     CombiningSubmissionFilter(
                         task.template.taskGroup.type.submission.asSequence().map { option ->
                             val parameters =
-                                task.template.taskGroup.type.configurations.query(DbConfiguredOption::key eq option.description)
+                                /* Parameters are stored as <OPTION>.<parameter>, e.g. LIMIT_CORRECT_PER_TEAM.limit */
+                                task.template.taskGroup.type.configurations.query(DbConfiguredOption::key.startsWith("${option.description}."))
                                     .asSequence().map { it.key to it.value }.toMap()
                             option.newFilter(parameters)
                         }.toList()
@@ -210,8 +211,9 @@ class InteractiveAsynchronousEvaluation(store: TransientEntityStore, evaluation:
                     when (val scoreOption = task.template.taskGroup.type.score) {
                         DbScoreOption.KIS -> KisTaskScorer(
                             this,
-                            task.template.taskGroup.type.configurations.query(DbConfiguredOption::key eq scoreOption.description)
-                                .asSequence().map { it.key to it.value }.toMap(),
+                            /* Parameters are stored as KIS.<parameter>; the scorer expects the plain parameter names. */
+                            task.template.taskGroup.type.configurations.query(DbConfiguredOption::key.startsWith("${scoreOption.description}."))
+                                .asSequence().map { it.key.substringAfter(".") to it.value }.toMap(),
                             store
                         )
 

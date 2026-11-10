@@ -8,11 +8,11 @@ object Parameters {
      * If a task has a total duration of 500s, then a value of 5s means that submissions arriving between 495s and 500s
      * may trigger prolongation of the task.
      */
-    const val PROLONG_ON_SUBMISSION_LIMIT_PARAM = "PROLONG_ON_SUBMISSION_LIMIT"
+    const val PROLONG_ON_SUBMISSION_LIMIT_PARAM = "PROLONG_ON_SUBMISSION.limit" /* Configuration keys must have the form DOMAIN.KEY (enforced by the TemplateManager). */
 
     /** Key for [DbTaskOption.PROLONG_ON_SUBMISSION]; [Int] value expected. Determines by how many seconds a task should be prolonged. */
-    const val PROLONG_ON_SUBMISSION_BY_PARAM = "PROLONG_ON_SUBMISSION_BY"
+    const val PROLONG_ON_SUBMISSION_BY_PARAM = "PROLONG_ON_SUBMISSION.by"
 
     /** Key for [DbTaskOption.PROLONG_ON_SUBMISSION]; [Boolean] value expected. If true, task will only be prolonged for correct submissions. */
-    const val PROLONG_ON_SUBMISSION_CORRECT_PARAM = "PROLONG_ON_SUBMISSION_CORRECT"
+    const val PROLONG_ON_SUBMISSION_CORRECT_PARAM = "PROLONG_ON_SUBMISSION.correct"
 }

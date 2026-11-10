@@ -24,6 +24,9 @@ class ProlongOnSubmitUpdatable(private val manager: InteractiveRunManager): Upda
     /** The [ProlongOnSubmitUpdatable] belongs to the [Phase.MAIN]. */
     override val phase: Phase = Phase.MAIN
 
+    /** IDs of the [DbSubmission]s that already caused a prolongation (each submission may prolong a task only once). */
+    private val handledSubmissions = mutableSetOf<String>()
+
     /**
      * Determines if the current task should be prolonged based on the last [DbSubmission] and does so if necessary.
      *
@@ -47,12 +50,19 @@ class ProlongOnSubmitUpdatable(private val manager: InteractiveRunManager): Upda
                 val correctOnly = taskType.configuration[Parameters.PROLONG_ON_SUBMISSION_CORRECT_PARAM]?.toBooleanStrictOrNull() ?: Defaults.PROLONG_ON_SUBMISSION_CORRECT_DEFAULT
 
                 /* Apply prolongation if necessary. */
-                val lastSubmission: DbSubmission? = DbAnswerSet.filter { it.task.id eq currentTask.taskId }.mapDistinct { it.submission }.lastOrNull()
-                if (lastSubmission == null || (correctOnly && lastSubmission.answerSets.asSequence().all { it.status != DbVerdictStatus.CORRECT })) {
+                val lastSubmission: DbSubmission = DbAnswerSet.filter { it.task.id eq currentTask.taskId }.mapDistinct { it.submission }
+                    .asSequence().maxByOrNull { it.timestamp } ?: return
+                if (lastSubmission.submissionId in this.handledSubmissions) {
                     return
                 }
+                if (correctOnly && lastSubmission.answerSets.asSequence().all { it.status != DbVerdictStatus.CORRECT }) {
+                    return
+                }
+                /* Only a submission received within the final 'limit' seconds prolongs the task (and only once). */
                 val timeLeft = Math.floorDiv(this.manager.timeLeft(context)!!, 1000)
-                if (timeLeft in 0 until limit) {
+                val receivedInWindow = lastSubmission.timestamp >= System.currentTimeMillis() - (limit * 1000L)
+                if (timeLeft in 0 until limit && receivedInWindow) {
+                    this.handledSubmissions.add(lastSubmission.submissionId)
                     this.manager.adjustDuration(context, prolongBy)
                 }
             }

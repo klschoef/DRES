@@ -148,14 +148,11 @@ export class TemplateBuilderComponent extends AbstractTemplateBuilderComponent i
     this.templateService.patchApiV2TemplateByTemplateId(this.builderService.getTemplate().id, this.builderService.getTemplateCleaned()).subscribe((s) => {
       this.snackBar.open(s.description, null, {duration: 5000});
       this.builderService.unmarkDirty();
-      console.log("TemplateBuilder: Saved successfully", this.builderService.isDirty())
-      this.isSaving = false;
-      this.refresh();
+      /* Keep isSaving until the saved template (with its new modification timestamp) has been reloaded; otherwise a second save would fail with 409. */
+      this.reload(() => this.isSaving = false);
     }, (r) => {
       console.log(r)
       this.snackBar.open(`Error: ${r?.error?.description}`, null, {duration: 5000})
-      this.isSaving = false
-    }, () => {
       this.isSaving = false
     });
   }
@@ -178,9 +175,28 @@ export class TemplateBuilderComponent extends AbstractTemplateBuilderComponent i
 
   refresh() {
     if(this.builderService.checkDirty()){
-      this.ngOnInit();
+      this.reload();
       this.builderService.selectTaskTemplate(null);
     }
+  }
+
+  /** Reloads the template from the server (without re-registering subscriptions, which would leak). */
+  private reload(done?: () => void) {
+    const id = this.builderService.getTemplate()?.id;
+    if (!id) {
+      done?.();
+      return;
+    }
+    this.templateService.getApiV2TemplateByTemplateId(id).subscribe({
+      next: (t) => {
+        this.builderService.initialise(t);
+        done?.();
+      },
+      error: (r) => {
+        this.snackBar.open(`Error: ${r?.error?.description}`, null, {duration: 5000});
+        done?.();
+      }
+    });
   }
 
   editTask(taskType: ApiTaskType, taskGroup: ApiTaskGroup, task?: ApiTaskTemplate) {

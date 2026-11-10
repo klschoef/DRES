@@ -69,7 +69,7 @@
               [cdkDropListConnectedTo]="[userList]"
               class="member-list"
               (cdkDropListDropped)="drop($event)">
-              <mat-card class="member-list-item-border member-list-item" *ngFor="let user of (form.get('users').value | userListFilter: memberFilterText)" cdkDrag>
+              <mat-card class="member-list-item-border member-list-item" *ngFor="let user of (form.get('users').value | userListFilter: memberFilterText)" cdkDrag [cdkDragData]="user">
                 <mat-card-content>{{user.username}}</mat-card-content>
               </mat-card>
             </div>
@@ -91,7 +91,7 @@
               [cdkDropListConnectedTo]="[memberList]"
               class="member-list"
               (cdkDropListDropped)="drop($event)">
-              <mat-card class="member-list-item-border member-list-item" *ngFor="let user of (users|userListFilter: availableFilterText)" cdkDrag>
+              <mat-card class="member-list-item-border member-list-item" *ngFor="let user of (users|userListFilter: availableFilterText)" cdkDrag [cdkDragData]="user">
                 <mat-card-content>{{user.username}}</mat-card-content>
               </mat-card>
             </div>

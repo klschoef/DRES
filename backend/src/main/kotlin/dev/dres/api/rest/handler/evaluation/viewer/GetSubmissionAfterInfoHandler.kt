@@ -19,7 +19,7 @@ import kotlinx.dnq.query.contains
 /**
  *
  */
-class GetSubmissionAfterInfoHandler : AbstractEvaluationViewerHandler(), GetRestHandler<List<ApiSubmission>> {
+class GetSubmissionAfterInfoHandler(private val store: TransientEntityStore) : AbstractEvaluationViewerHandler(), GetRestHandler<List<ApiSubmission>> {
     override val route = "evaluation/{evaluationId}/submission/list/after/{timestamp}"
 
     @OpenApi(
@@ -63,7 +63,10 @@ class GetSubmissionAfterInfoHandler : AbstractEvaluationViewerHandler(), GetRest
             currentTask.isRunning && manager.template.taskTypes.find { it.name == currentTask.template.taskType }?.taskOptions?.contains(
                 ApiTaskOption.HIDDEN_RESULTS
             ) == true
-        return manager.currentSubmissions(rac).filter { it.timestamp >= timestamp }.map { it.toApi(blind) }
+        /* Submissions are database entities; they must be accessed within a transaction. */
+        return this.store.transactional(true) {
+            manager.currentSubmissions(rac).filter { it.timestamp >= timestamp }.map { it.toApi(blind) }
+        }
 
     }
 }
