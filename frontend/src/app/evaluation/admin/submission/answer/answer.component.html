@@ -5,11 +5,17 @@
   </ng-container>
   <ng-container matColumnDef="text">
     <th mat-header-cell *matHeaderCellDef >Text</th>
-    <td mat-cell *matCellDef="let row" [attr.colspan]="5">{{row.text}}</td>
+    <td mat-cell *matCellDef="let row" [attr.colspan]="5">
+      <span *ngIf="isHidden(row); else textValue" class="hidden-answer" matTooltip="The task hides results (HIDDEN_RESULTS) until it ends">Hidden until the task ends</span>
+      <ng-template #textValue>{{row.text}}</ng-template>
+    </td>
   </ng-container>
   <ng-container matColumnDef="item">
     <th mat-header-cell *matHeaderCellDef >Media Item</th>
-    <td mat-cell  *matCellDef="let row">{{row.item ? row.item.name + ' ('+ row.item.type+')': 'N/A'}}</td>
+    <td mat-cell  *matCellDef="let row">
+      <span *ngIf="isHidden(row); else itemValue" class="hidden-answer" matTooltip="The task hides results (HIDDEN_RESULTS) until it ends">Hidden until the task ends</span>
+      <ng-template #itemValue>{{row.item ? row.item.name + ' ('+ row.item.type+')': 'N/A'}}</ng-template>
+    </td>
   </ng-container>
   <ng-container matColumnDef="start">
     <th mat-header-cell *matHeaderCellDef>Start</th>

@@ -5,6 +5,7 @@ import dev.dres.api.rest.handler.*
 import dev.dres.api.rest.handler.evaluation.client.AbstractEvaluationClientHandler
 import dev.dres.api.rest.types.users.ApiRole
 import dev.dres.data.model.run.interfaces.EvaluationId
+import dev.dres.data.model.template.team.TeamId
 import dev.dres.run.InteractiveRunManager
 import dev.dres.run.RunExecutor
 import dev.dres.run.RunManager
@@ -62,5 +63,20 @@ abstract class AbstractEvaluationViewerHandler: RestHandler, AccessManagedRestHa
             ctx.isViewer() -> managers.filter { m -> m.template.viewers.any{u -> u == ctx.userId()}}
             else -> managers
         }
+    }
+
+    /**
+     * Returns the IDs of the teams in the given evaluation that the user of the current session is a member of.
+     *
+     * Used to show a team its own submissions while results are hidden from everybody else
+     * (task option HIDDEN_RESULTS). Admins, judges and viewers are usually not members of a team.
+     */
+    protected fun ownTeamIds(ctx: Context, manager: InteractiveRunManager): Set<TeamId> {
+        val userId = try {
+            ctx.userId()
+        } catch (e: Exception) {
+            return emptySet()
+        }
+        return manager.template.teams.filter { team -> team.users.any { it.id == userId } }.mapNotNull { it.id }.toSet()
     }
 }

@@ -6,6 +6,8 @@ import dev.dres.api.rest.types.evaluation.ApiSubmissionInfo
 import dev.dres.api.rest.types.status.ErrorStatus
 import dev.dres.api.rest.types.status.ErrorStatusException
 import dev.dres.data.model.run.RunActionContext.Companion.runActionContext
+import dev.dres.api.rest.types.template.tasks.options.ApiTaskOption
+import dev.dres.api.rest.types.evaluation.submission.ApiSubmission
 import io.javalin.http.Context
 import io.javalin.openapi.*
 
@@ -45,9 +47,18 @@ class ListSubmissionsHandler : AbstractEvaluationAdminHandler(),
         val evaluationManager =
             getManager(evaluationId) ?: throw ErrorStatusException(404, "Evaluation $evaluationId not found", ctx)
         val rac = ctx.runActionContext()
-        return evaluationManager.tasks(rac).filter { it.taskTemplateId == templateId }.map {
-            ApiSubmissionInfo(evaluationId, it.taskId, it.getSubmissions())
+        return evaluationManager.tasks(rac).filter { it.taskTemplateId == templateId }.map { task ->
+            /* With hidden results, the answers stay hidden from administrators too until the task ends (verdicts remain visible). */
+            val hidden = task.isRunning && evaluationManager.template.taskTypes.find { it.name == task.template.taskType }
+                ?.taskOptions?.contains(ApiTaskOption.HIDDEN_RESULTS) == true
+            val submissions = task.getSubmissions()
+            ApiSubmissionInfo(evaluationId, task.taskId, if (hidden) submissions.map { blind(it) } else submissions)
         }
 
     }
+
+    /** Removes item, segment and text from all answers of the given [ApiSubmission]. */
+    private fun blind(submission: ApiSubmission) = submission.copy(answers = submission.answers.map { set ->
+        set.copy(answers = set.answers.map { it.copy(item = null, start = null, end = null, text = null) })
+    })
 }

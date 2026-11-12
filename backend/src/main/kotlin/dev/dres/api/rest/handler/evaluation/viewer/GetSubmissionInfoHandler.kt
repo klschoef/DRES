@@ -53,12 +53,15 @@ class GetSubmissionInfoHandler(private val store: TransientEntityStore): Abstrac
             ApiTaskOption.HIDDEN_RESULTS
         ) == true
 
+        /* With hidden results, a team still sees its own submissions. */
+        val ownTeams = if (blind) ownTeamIds(ctx, manager) else emptySet()
+
         /* Obtain current task run and check status. */
         return this.store.transactional (true) {
             if (limit > 0) {
-                limitSubmissions(manager.currentSubmissions(rac), limit, blind)
+                limitSubmissions(manager.currentSubmissions(rac), limit, blind, ownTeams)
             } else {
-                manager.currentSubmissions(rac).map { it.toApi(blind) }
+                manager.currentSubmissions(rac).map { it.toApi(blind && it.team.teamId !in ownTeams) }
             }
         }
     }
@@ -71,12 +74,13 @@ class GetSubmissionInfoHandler(private val store: TransientEntityStore): Abstrac
      * @param submissions The [List] of [DbSubmission]s to limit.
      * @param limit The number of items to limit to.
      * @param blind If [DbSubmission] should be anonymised.
+     * @param ownTeams Teams whose submissions are never anonymised (the teams of the requesting user).
      * @return Limited [List] of [DbSubmission]
      */
-    private fun limitSubmissions(submissions: List<DbSubmission>, limit: Int, blind: Boolean = false): List<ApiSubmission>
+    private fun limitSubmissions(submissions: List<DbSubmission>, limit: Int, blind: Boolean = false, ownTeams: Set<String> = emptySet()): List<ApiSubmission>
         = submissions.groupBy { it.team.id }.values.map {
             it.sortedBy { s -> s.timestamp }.take(limit)
         }.flatMap {
-            it.map { s -> s.toApi(blind) }
+            it.map { s -> s.toApi(blind && s.team.teamId !in ownTeams) }
         }
 }

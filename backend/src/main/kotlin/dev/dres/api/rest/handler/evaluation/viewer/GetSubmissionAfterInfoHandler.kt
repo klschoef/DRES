@@ -63,9 +63,11 @@ class GetSubmissionAfterInfoHandler(private val store: TransientEntityStore) : A
             currentTask.isRunning && manager.template.taskTypes.find { it.name == currentTask.template.taskType }?.taskOptions?.contains(
                 ApiTaskOption.HIDDEN_RESULTS
             ) == true
+        /* With hidden results, a team still sees its own submissions. */
+        val ownTeams = if (blind) ownTeamIds(ctx, manager) else emptySet()
         /* Submissions are database entities; they must be accessed within a transaction. */
         return this.store.transactional(true) {
-            manager.currentSubmissions(rac).filter { it.timestamp >= timestamp }.map { it.toApi(blind) }
+            manager.currentSubmissions(rac).filter { it.timestamp >= timestamp }.map { it.toApi(blind && it.team.teamId !in ownTeams) }
         }
 
     }

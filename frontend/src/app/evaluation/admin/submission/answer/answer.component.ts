@@ -32,6 +32,10 @@ export class AnswerComponent {
     return undefined;
   }
 
+  /** True if the server removed the content of this answer because the task hides results while it is running. */
+  public isHidden = (rowData: ApiAnswer) =>
+    rowData.item == null && rowData.start == null && rowData.end == null && rowData.text == null;
+
   public hasTextType = (index: number, rowData: ApiAnswer) => rowData.type === ApiAnswerType.TEXT;
 
   public hasNotTextType = (index: number, rowData: ApiAnswer) => rowData.type !== ApiAnswerType.TEXT;

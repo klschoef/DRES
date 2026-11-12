@@ -55,7 +55,9 @@ class GetSubmissionHistoryInfoHandler(private val store: TransientEntityStore): 
                 val hidden = manager.template.taskTypes.find { it.name == task.template.taskType }?.taskOptions?.contains(
                     ApiTaskOption.HIDDEN_RESULTS
                 ) == true
-                task.getDbSubmissions().toList().map { it.toApi(hidden) }
+                /* With hidden results, a team still sees its own submissions. */
+                val ownTeams = if (hidden) ownTeamIds(ctx, manager) else emptySet()
+                task.getDbSubmissions().toList().map { it.toApi(hidden && it.team.teamId !in ownTeams) }
             } else {
                 task.getSubmissions()
             }
