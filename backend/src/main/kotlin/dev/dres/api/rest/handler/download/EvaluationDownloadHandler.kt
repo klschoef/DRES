@@ -1,5 +1,7 @@
 package dev.dres.api.rest.handler.download
 
+import io.javalin.security.RouteRole
+import dev.dres.api.rest.types.users.ApiRole
 import dev.dres.api.rest.handler.GetRestHandler
 import dev.dres.api.rest.types.evaluation.ApiEvaluation
 import dev.dres.api.rest.types.status.ErrorStatus
@@ -19,6 +21,9 @@ import kotlinx.dnq.query.query
  * @version 1.0.0
  */
 class EvaluationDownloadHandler(private val store: TransientEntityStore) : AbstractDownloadHandler(), GetRestHandler<ApiEvaluation> {
+
+    /** The complete evaluation (template), including all targets and submissions, is restricted to [ApiRole.ADMIN]. */
+    override val permittedRoles: Set<RouteRole> = setOf(ApiRole.ADMIN)
 
     /** The route of this [EvaluationDownloadHandler]. */
     override val route = "download/evaluation/{evaluationId}"

@@ -104,6 +104,10 @@ class GetTaskHintHandler(private val store: TransientEntityStore, private val ca
                 if (ctx.isParticipant() || ctx.isAdmin()) {
                     this.viewerPreparing(taskTemplateId, rac, ViewerInfo(ctx))
                 }
+                /* Participants and judges only get to see the hint of a task once that task has been started. */
+                if ((ctx.isParticipant() || ctx.isJudge()) && this.tasks(rac).none { it.taskTemplateId == taskTemplateId }) {
+                    throw ErrorStatusException(403, "Access denied; task hint cannot be displayed before the task has been started.", ctx)
+                }
             }
             else -> { /* No op */ }
         }

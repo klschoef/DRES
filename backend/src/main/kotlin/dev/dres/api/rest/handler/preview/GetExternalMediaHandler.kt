@@ -58,7 +58,17 @@ class GetExternalMediaHandler : GetRestHandler<Any>, AccessManagedRestHandler {
         }
 
         /* Lookup */
-        val path = DRES.EXTERNAL_ROOT.resolve(Path(file))
+        /* The file must be located within the external media location (no path traversal). */
+        val root = DRES.EXTERNAL_ROOT.toAbsolutePath().normalize()
+        val path = try {
+            root.resolve(file).normalize()
+        } catch (e: java.nio.file.InvalidPathException) {
+            null
+        }
+        if (path == null || !path.startsWith(root) || path == root || !Files.isRegularFile(path)) {
+            ctx.errorResponse(404, "External file with name $file was not found")
+            return
+        }
         if (!Files.exists(path)) {
             ctx.errorResponse(404, "External file with name $file was not found")
             return

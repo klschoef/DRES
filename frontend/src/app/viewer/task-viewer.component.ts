@@ -2,7 +2,7 @@ import { AfterViewInit, Component, ElementRef, Input, OnDestroy, ViewChild } fro
 import {BehaviorSubject, combineLatest, from, interval, mergeMap, Observable, of, Subscription} from 'rxjs';
 import {
   catchError,
-  delayWhen, filter,
+  delayWhen, distinctUntilChanged, filter,
   map,
   repeat,
   shareReplay,
@@ -115,29 +115,31 @@ export class TaskViewerComponent implements AfterViewInit, OnDestroy {
    */
   ngAfterViewInit(): void {
     /*  Observable for the current query hint. */
-    this.currentTaskHintSubscription = this.taskChanged.pipe(
-      mergeMap((task) => {
+    /*
+     * The hint is requested whenever the task template changes (this registers the viewer with the server) and
+     * again once a task has been started: before that, the server does not hand out hints to participants.
+     */
+    this.currentTaskHintSubscription = this.state.pipe(
+      distinctUntilChanged((s1, s2) => s1.taskTemplateId === s2.taskTemplateId && s1.taskId === s2.taskId),
+      switchMap((task) => {
           return this.runService.getHintForTaskTemplateId(task.evaluationId, task.taskTemplateId).pipe(
             catchError((e) => {
-              console.error("[TaskViewerComponent] Could not load current query hint due to an error.", e);
+              if (e?.status !== 403) {
+                console.error("[TaskViewerComponent] Could not load current query hint due to an error.", e);
+              }
               return of(null);
+            }),
+            tap(() => {
+              /* Only report ready for a task that has been started; the server waits for this before the task runs. */
+              if (task.taskId) {
+                this.runService.getApiV2EvaluationByEvaluationIdByTaskIdReady(task.evaluationId, task.taskTemplateId).pipe(
+                  catchError(() => of(null))
+                ).subscribe();
+              }
             })
           );
         }
-      ),
-      tap((hint) => {
-
-        this.state.pipe(
-          take(1), //use latest state, only do this once
-          switchMap(
-            (state) => {
-              console.log(state)
-              return this.runService.getApiV2EvaluationByEvaluationIdByTaskIdReady(state.evaluationId, state.taskTemplateId)
-            }
-            ),
-          tap(() => {console.log("READY sent")})
-          ).subscribe()
-      })
+      )
     ).subscribe(n => this.currentTaskHint.next(n))
 
 
@@ -207,7 +209,7 @@ export class TaskViewerComponent implements AfterViewInit, OnDestroy {
     /* Map task hint to representation used by viewer. */
     this.currentHintContent = this.currentTaskHint.pipe(
       filter(h => h != null),
-      mergeMap((hint) => {
+      switchMap((hint) => {
         return this.timeElapsed.pipe(
             take(1),
             mergeMap((timeElapsed) => {

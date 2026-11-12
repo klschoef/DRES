@@ -73,11 +73,9 @@ object AccessManager {
      */
     fun registerUserForSession(sessionId: String, user: ApiUser) = this.locks.write {
         require(user.id != null) { "Can only register user with userId for session. This is a programmer's error!"}
-        if (!this.sessionRoleMap.containsKey(sessionId)){
-            this.sessionRoleMap[sessionId] = mutableSetOf()
-        }
+        /* The roles of a session are always replaced: a session must never keep the roles of a user that was logged in before. */
         this.sessionUserMap[sessionId] = user.id
-        this.sessionRoleMap[sessionId]!!.addAll(
+        this.sessionRoleMap[sessionId] = mutableSetOf(*
             when(user.role) {
                 ApiRole.ADMIN -> arrayOf(ApiRole.VIEWER, ApiRole.PARTICIPANT, ApiRole.JUDGE, ApiRole.ADMIN)
                 ApiRole.JUDGE -> arrayOf(ApiRole.VIEWER, ApiRole.JUDGE)

@@ -1,5 +1,7 @@
 package dev.dres.api.rest.handler.download
 
+import io.javalin.security.RouteRole
+import dev.dres.api.rest.types.users.ApiRole
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import dev.dres.api.rest.handler.GetRestHandler
 import dev.dres.api.rest.types.status.ErrorStatus
@@ -21,6 +23,9 @@ import kotlinx.dnq.query.query
  */
 class EvaluationTemplateDownloadHandler(private val store: TransientEntityStore) : AbstractDownloadHandler(),
     GetRestHandler<ApiEvaluationTemplate> {
+
+    /** The complete evaluation (template), including all targets and submissions, is restricted to [ApiRole.ADMIN]. */
+    override val permittedRoles: Set<RouteRole> = setOf(ApiRole.ADMIN)
 
     /** The route of this [EvaluationTemplateDownloadHandler]. */
     override val route = "download/template/{templateId}"

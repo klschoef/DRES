@@ -109,9 +109,9 @@ export class AuthenticationService {
         map((role) => {
           if (!role) {
             return this.router.parseUrl(`/login?returnUrl=${state.url}`)
-          } else if (route.data.roles && route.data.roles.indexOf(role) === -1) {
-            //return this.router.parseUrl('/forbidden');
-            return this.router.parseUrl(`/login?returnUrl=${state.url}`)
+          } else if (rolesAllows.indexOf(role) === -1) {
+            /* Logged in, but the role is not permitted to see this view. */
+            return this.router.parseUrl('/forbidden');
           } else {
             return true;
           }

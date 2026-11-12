@@ -264,12 +264,14 @@ class InteractiveSynchronousRunManager(
                 /* Create and prepare pipeline for submission. */
                 this.evaluation.ISTaskRun(dbTask)
 
+                /*
+                 * Reset the ReadyLatch (before the task enters the PREPARING state): viewers load the task hint and
+                 * report ready once the task has been started. Viewers that do not report back are ignored after the timeout.
+                 */
+                this.readyLatch.reset(VIEWER_TIMEOUT_DEFAULT)
+
                 /* Update status. */
                 this.evaluation.currentTaskRun!!.prepare()
-
-                /* Reset the ReadyLatch. */
-                //this.readyLatch.reset(VIEWER_TIMEOUT_DEFAULT)
-                /* Since the viewer sends its ready message too early, if we reset the readyLatch here, we will override the previously sent ready and will always run into the timout */
             }
         } catch (e: Throwable) {
             /* Remove the task that could not be started; otherwise it would block this evaluation (also after a restart). */
