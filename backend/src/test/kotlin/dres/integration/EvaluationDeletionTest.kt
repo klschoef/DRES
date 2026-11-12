@@ -1,5 +1,6 @@
 package dres.integration
 
+import dev.dres.api.rest.types.evaluation.ApiVerdictCounts
 import dev.dres.data.model.media.DbMediaItem
 import dev.dres.data.model.run.DbEvaluation
 import dev.dres.data.model.submissions.DbAnswer
@@ -122,6 +123,8 @@ class EvaluationDeletionTest : AbstractDresIntegrationTest() {
         assertNotNull(listed)
         assertEquals(2, listed!!.submissionCount)
         assertEquals(1, listed.taskCount)
+        assertEquals(ApiVerdictCounts(correct = 0, wrong = 2, indeterminate = 0, undecidable = 0), listed.verdicts)
+        assertEquals(listed.verdicts, EvaluationManager.verdictCounts(f.evaluationId))
 
         EvaluationManager.deleteEvaluation(f.evaluationId)
         assertNull(EvaluationManager.listEnded().find { it.evaluationId == f.evaluationId })

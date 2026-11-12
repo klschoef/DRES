@@ -19,5 +19,7 @@ data class ApiEndedEvaluationInfo(
     val started: Long?,
     val ended: Long?,
     val taskCount: Int,
-    val submissionCount: Int
+    val submissionCount: Int,
+    /** Number of submitted answer sets per verdict. */
+    val verdicts: ApiVerdictCounts
 )

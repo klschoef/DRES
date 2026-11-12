@@ -33,6 +33,7 @@ import { EvaluationModule } from "../evaluation/evaluation.module";
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { RouterModule } from '@angular/router';
 import { EndedRunListComponent } from './ended-run-list.component';
+import { VerdictCountsComponent } from './verdict-counts.component';
 
 @NgModule({
   imports: [
@@ -74,6 +75,7 @@ import { EndedRunListComponent } from './ended-run-list.component';
     RunAsyncAdminViewComponent,
     RunAdminToolbarComponent,
     EndedRunListComponent,
+    VerdictCountsComponent,
   ],
   providers: [],
 })

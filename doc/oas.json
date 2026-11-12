@@ -6202,9 +6202,35 @@
           "submissionCount" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "verdicts" : {
+            "$ref" : "#/components/schemas/ApiVerdictCounts"
           }
         },
-        "required" : [ "evaluationId", "name", "templateName", "type", "created", "taskCount", "submissionCount" ]
+        "required" : [ "evaluationId", "name", "templateName", "type", "created", "taskCount", "submissionCount", "verdicts" ]
+      },
+      "ApiVerdictCounts" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "correct" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "wrong" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "indeterminate" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "undecidable" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "correct", "wrong", "indeterminate", "undecidable" ]
       },
       "ApiEvaluationInfo" : {
         "type" : "object",
@@ -6258,9 +6284,12 @@
             "items" : {
               "$ref" : "#/components/schemas/ApiTeamTaskOverview"
             }
+          },
+          "verdicts" : {
+            "$ref" : "#/components/schemas/ApiVerdictCounts"
           }
         },
-        "required" : [ "state", "teamOverviews" ]
+        "required" : [ "state", "teamOverviews", "verdicts" ]
       },
       "ApiEvaluationState" : {
         "type" : "object",

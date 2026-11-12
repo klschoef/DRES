@@ -133,6 +133,12 @@
       </td>
     </ng-container>
 
+    <!-- Submissions Column -->
+    <ng-container matColumnDef="submissions">
+      <th mat-header-cell *matHeaderCellDef>Submissions</th>
+      <td mat-cell *matCellDef="let row"><app-verdict-counts [counts]="row.verdicts"></app-verdict-counts></td>
+    </ng-container>
+
     <!-- Description Column -->
     <ng-container matColumnDef="description">
       <th mat-header-cell *matHeaderCellDef>Description</th>

@@ -3,6 +3,7 @@ package dev.dres.api.rest.handler.evaluation.admin
 import dev.dres.api.rest.handler.GetRestHandler
 import dev.dres.utilities.extensions.evaluationId
 import dev.dres.api.rest.types.evaluation.ApiEvaluationOverview
+import dev.dres.mgmt.EvaluationManager
 import dev.dres.api.rest.types.status.ErrorStatus
 import dev.dres.api.rest.types.status.ErrorStatusException
 import io.javalin.http.Context
@@ -36,7 +37,7 @@ class EvaluationOverviewHandler : AbstractEvaluationAdminHandler(), GetRestHandl
     override fun doGet(ctx: Context): ApiEvaluationOverview {
         val evaluationId = ctx.evaluationId()
         val evaluationManager = getManager(evaluationId) ?: throw ErrorStatusException(404, "Evaluation $evaluationId not found.", ctx)
-        return ApiEvaluationOverview.of(evaluationManager)
+        return ApiEvaluationOverview.of(evaluationManager, EvaluationManager.verdictCounts(evaluationId))
 
     }
 }

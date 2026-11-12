@@ -1,6 +1,7 @@
 package dev.dres.mgmt
 
 import dev.dres.api.rest.types.evaluation.ApiEndedEvaluationInfo
+import dev.dres.api.rest.types.evaluation.ApiVerdictCounts
 import dev.dres.data.model.run.DbEvaluation
 import dev.dres.data.model.run.interfaces.EvaluationId
 import dev.dres.data.model.submissions.DbSubmission
@@ -47,7 +48,8 @@ object EvaluationManager {
                     started = evaluation.started,
                     ended = evaluation.ended,
                     taskCount = evaluation.tasks.size(),
-                    submissionCount = submissionsOf(evaluation).size
+                    submissionCount = submissionsOf(evaluation).size,
+                    verdicts = countVerdicts(evaluation)
                 )
             }.sortedByDescending { it.ended ?: it.started ?: it.created }.toList()
         }
@@ -78,6 +80,27 @@ object EvaluationManager {
             }
             DeletedEvaluation(evaluationId, name, submissions.size)
         }
+    }
+
+    /**
+     * Counts the submitted answer sets of an evaluation per verdict. Returns zeros if the evaluation does not exist.
+     */
+    fun verdictCounts(evaluationId: EvaluationId): ApiVerdictCounts = this.store.transactional(true) {
+        DbEvaluation.query(DbEvaluation::id eq evaluationId).firstOrNull()?.let { countVerdicts(it) }
+            ?: ApiVerdictCounts(0, 0, 0, 0)
+    }
+
+    /** Counts the answer sets of all tasks of the given [DbEvaluation] per verdict. Requires a transaction. */
+    private fun countVerdicts(evaluation: DbEvaluation): ApiVerdictCounts {
+        val counts = evaluation.tasks.asSequence()
+            .flatMap { task -> task.answerSets.asSequence().map { it.status.description } }
+            .groupingBy { it }.eachCount()
+        return ApiVerdictCounts(
+            correct = counts["CORRECT"] ?: 0,
+            wrong = counts["WRONG"] ?: 0,
+            indeterminate = counts["INDETERMINATE"] ?: 0,
+            undecidable = counts["UNDECIDABLE"] ?: 0
+        )
     }
 
     /** All [DbSubmission]s that contain an answer set for one of the tasks of the given [DbEvaluation]. Requires a transaction. */

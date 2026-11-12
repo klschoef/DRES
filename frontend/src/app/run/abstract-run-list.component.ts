@@ -7,7 +7,7 @@ import {
   ApiTaskStatus, DownloadService,
   EvaluationAdministratorService,
   EvaluationScoresService,
-  EvaluationService, RunManagerStatus
+  EvaluationService, RunManagerStatus, ApiVerdictCounts
 } from "../../../openapi";
 
 export interface RunInfoWithState {
@@ -22,6 +22,8 @@ export interface RunInfoWithState {
   timeLeft: string;
   asynchronous: boolean;
   runProperties: ApiRunProperties;
+  /** Submissions per verdict (only available for administrators). */
+  verdicts?: ApiVerdictCounts;
 }
 
 export class AbstractRunListComponent {

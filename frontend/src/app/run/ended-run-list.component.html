@@ -75,7 +75,10 @@
 
   <ng-container matColumnDef="submissions">
     <th mat-header-cell *matHeaderCellDef># Submissions</th>
-    <td mat-cell *matCellDef="let row">{{ row.submissionCount }}</td>
+    <td mat-cell *matCellDef="let row">
+      <span class="total">{{ row.submissionCount }}</span>
+      <app-verdict-counts [counts]="row.verdicts"></app-verdict-counts>
+    </td>
   </ng-container>
 
   <ng-container matColumnDef="id">
