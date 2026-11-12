@@ -180,6 +180,8 @@ object RestApi {
             CreateEvaluationHandler(store, cache),
             StartEvaluationHandler(),
             StopEvaluationHandler(),
+            ListEndedEvaluationsHandler(),
+            DeleteEvaluationHandler(),
             NextTaskHandler(),
             PreviousTaskHandler(),
             SwitchTaskHandler(),

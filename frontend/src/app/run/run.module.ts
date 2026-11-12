@@ -30,6 +30,9 @@ import { RunAsyncAdminViewComponent } from './run-async-admin-view/run-async-adm
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { RunAdminToolbarComponent } from './run-admin-toolbar/run-admin-toolbar.component';
 import { EvaluationModule } from "../evaluation/evaluation.module";
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { RouterModule } from '@angular/router';
+import { EndedRunListComponent } from './ended-run-list.component';
 
 @NgModule({
   imports: [
@@ -57,9 +60,11 @@ import { EvaluationModule } from "../evaluation/evaluation.module";
     NgApexchartsModule,
     MatExpansionModule,
     MatToolbarModule,
-    EvaluationModule
+    EvaluationModule,
+    MatProgressBarModule,
+    RouterModule
   ],
-  exports: [RunListComponent, RunAdminViewComponent, RunScoreHistoryComponent],
+  exports: [RunListComponent, RunAdminViewComponent, RunScoreHistoryComponent, EndedRunListComponent],
   declarations: [
     RunListComponent,
     RunAdminViewComponent,
@@ -68,6 +73,7 @@ import { EvaluationModule } from "../evaluation/evaluation.module";
     ViewerRunListComponent,
     RunAsyncAdminViewComponent,
     RunAdminToolbarComponent,
+    EndedRunListComponent,
   ],
   providers: [],
 })

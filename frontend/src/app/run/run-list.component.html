@@ -3,6 +3,16 @@
   <h1>Ongoing Evaluations</h1>
   <div class="spacer-flex"></div>
   <div>
+    <a *ngIf="hasAccessFor(adminGroup)"
+       mat-stroked-button
+       routerLink="/evaluation/ended"
+       aria-label="Show stopped evaluations."
+       matTooltip="Show stopped evaluations, download or delete them"
+       class="ended-link"
+    >
+      <mat-icon>history</mat-icon>
+      Stopped evaluations
+    </a>
     <button mat-icon-button
             aria-label="Refresh list of evaluations."
             matTooltip="Refresh list of evaluations."
